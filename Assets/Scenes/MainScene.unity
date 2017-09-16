@@ -522,9 +522,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab419931338964248a990659c700d9f5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  blurIterations: 4
+  outlineMaterial: {fileID: 2100000, guid: 08e46c12cdb23084cab28092ea0c1b95, type: 2}
   targets:
   - {fileID: 1895955181}
-  outlineMaterial: {fileID: 2100000, guid: 08e46c12cdb23084cab28092ea0c1b95, type: 2}
 --- !u!1 &1895955180
 GameObject:
   m_ObjectHideFlags: 0
