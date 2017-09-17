@@ -10,6 +10,10 @@ public class DrawOutlines: MonoBehaviour
     private Material outlineMaterial;
     [SerializeField]
     private Renderer[] targets;
+    [SerializeField]
+    private Color color;
+    [SerializeField]
+    private CompareFunction depthMode;
 
 
     private CommandBuffer commandBuffer;
@@ -37,6 +41,8 @@ public class DrawOutlines: MonoBehaviour
     private void OnValidate()
     {
         UpdateCommandBuffer();
+        outlineMaterial.SetColor("_Color", color);
+        outlineMaterial.SetInt("_ZTestMode", (int)depthMode);
     }
 
     private void UpdateCommandBuffer()
@@ -45,7 +51,7 @@ public class DrawOutlines: MonoBehaviour
         commandBuffer.Clear();
         commandBuffer.GetTemporaryRT(_prePassID, -1, -1, 0, FilterMode.Bilinear);
         commandBuffer.SetRenderTarget(_prePassID, BuiltinRenderTextureType.CurrentActive);
-        commandBuffer.ClearRenderTarget(false, true, Color.black);
+        commandBuffer.ClearRenderTarget(false, true, Color.clear);
 
         for (int i = 0; i < targets.Length; i++)
         {

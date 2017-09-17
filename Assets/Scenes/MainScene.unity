@@ -526,6 +526,8 @@ MonoBehaviour:
   outlineMaterial: {fileID: 2100000, guid: 08e46c12cdb23084cab28092ea0c1b95, type: 2}
   targets:
   - {fileID: 1895955181}
+  color: {r: 0, g: 1, b: 0.13103437, a: 1}
+  depthMode: 8
 --- !u!1 &1895955180
 GameObject:
   m_ObjectHideFlags: 0
