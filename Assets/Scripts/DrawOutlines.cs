@@ -3,13 +3,16 @@ using UnityEngine.Rendering;
 
 public class DrawOutlines: MonoBehaviour
 {
-    [Range(0,16)]
+    [Range(1,16)]
     [SerializeField]
     private int blurIterations;    
     [SerializeField]
     private Renderer[] targets;
     [SerializeField]
     private Color color;
+    [Range(0, 1)]
+    [SerializeField]
+    private float addBlend;
     [SerializeField]
     private CompareFunction depthMode;
 
@@ -22,17 +25,16 @@ public class DrawOutlines: MonoBehaviour
     private int _screenID;
     private Material blurMaterial;
     private Material outlineMaterial;
-    private Material composite;
-
+    private Material composeMaterial;
 
     private void Awake()
     {
         cam = GetComponent<Camera>();
         blurMaterial = new Material(Shader.Find("Hidden/Blur"));
         outlineMaterial = new Material(Shader.Find("Hidden/Outline"));
-        composite = new Material(Shader.Find("Hidden/Compose"));
+        composeMaterial = new Material(Shader.Find("Hidden/Compose"));
         commandBuffer = new CommandBuffer();
-        commandBuffer.name = "Outlines";
+        commandBuffer.name = "OUTLINES";
         cam.AddCommandBuffer(CameraEvent.BeforeImageEffects, commandBuffer);
 
         _prePassID = Shader.PropertyToID("_OutlinePrepass");
@@ -42,27 +44,21 @@ public class DrawOutlines: MonoBehaviour
 
         outlineMaterial.SetColor("_Color", color);
         outlineMaterial.SetInt("_ZTestMode", (int)depthMode);
+        composeMaterial.SetFloat("_AlphaMultiplier", addBlend);
 
         UpdateCommandBuffer();
     }
-
-    private void OnValidate()
-    {
-        UpdateCommandBuffer();
-        if (outlineMaterial == null) return;
-        outlineMaterial.SetColor("_Color", color);
-        outlineMaterial.SetInt("_ZTestMode", (int)depthMode);
-    }
-
+    
     private void UpdateCommandBuffer()
     {
         if (commandBuffer == null) return;
         commandBuffer.Clear();
-        commandBuffer.GetTemporaryRT(_screenID, -1, -1, 0, FilterMode.Bilinear);
+        commandBuffer.GetTemporaryRT(_screenID, -1, -1, 16, FilterMode.Bilinear);
         commandBuffer.Blit(BuiltinRenderTextureType.CameraTarget, _screenID);
-        commandBuffer.GetTemporaryRT(_prePassID, -1, -1, 0, FilterMode.Bilinear);
-        commandBuffer.SetRenderTarget(_prePassID, BuiltinRenderTextureType.CurrentActive);
+        commandBuffer.GetTemporaryRT(_prePassID, -1, -1, 16, FilterMode.Bilinear);
+        commandBuffer.SetRenderTarget(_prePassID, BuiltinRenderTextureType.CameraTarget);
         commandBuffer.ClearRenderTarget(false, true, Color.clear);
+
 
         for (int i = 0; i < targets.Length; i++)
         {
@@ -80,9 +76,23 @@ public class DrawOutlines: MonoBehaviour
         }
         commandBuffer.ReleaseTemporaryRT(_tempID);
 
-        commandBuffer.Blit(_screenID, BuiltinRenderTextureType.CameraTarget, composite);
+        commandBuffer.Blit(_screenID, BuiltinRenderTextureType.CameraTarget, composeMaterial);
         commandBuffer.ReleaseTemporaryRT(_prePassID);
         commandBuffer.ReleaseTemporaryRT(_blurredID);
         commandBuffer.ReleaseTemporaryRT(_screenID);
     }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        UpdateCommandBuffer();
+        if (outlineMaterial == null) return;
+        outlineMaterial.SetColor("_Color", color);
+        outlineMaterial.SetInt("_ZTestMode", (int)depthMode);
+
+        if (composeMaterial == null) return;
+        composeMaterial.SetFloat("_AlphaMultiplier", addBlend);
+
+    }
+#endif
 }
