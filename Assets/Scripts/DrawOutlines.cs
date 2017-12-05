@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 
 public class DrawOutlines: MonoBehaviour
 {
-    [Range(1,16)]
+    [Range(0,8)]
     [SerializeField]
     private int blurIterations;    
     [SerializeField]
@@ -15,6 +15,9 @@ public class DrawOutlines: MonoBehaviour
     private float addBlend;
     [SerializeField]
     private CompareFunction depthMode;
+    [Range(0,4)]
+    [SerializeField]
+    private int downscaleFactor;
 
 
     private CommandBuffer commandBuffer;
@@ -22,76 +25,95 @@ public class DrawOutlines: MonoBehaviour
     private int _prePassID;
     private int _blurredID;
     private int _tempID;
-    private int _screenID;
     private Material blurMaterial;
     private Material outlineMaterial;
     private Material composeMaterial;
 
-    private void Awake()
+    private int screenWidth;
+    private int screenHeight;
+
+
+    private void OnEnable()
     {
-        cam = GetComponent<Camera>();
         blurMaterial = new Material(Shader.Find("Hidden/Blur"));
         outlineMaterial = new Material(Shader.Find("Hidden/Outline"));
         composeMaterial = new Material(Shader.Find("Hidden/Compose"));
-        commandBuffer = new CommandBuffer();
-        commandBuffer.name = "OUTLINES";
-        cam.AddCommandBuffer(CameraEvent.BeforeImageEffects, commandBuffer);
-
-        _prePassID = Shader.PropertyToID("_OutlinePrepass");
-        _blurredID = Shader.PropertyToID("_Blurred");
-        _tempID = Shader.PropertyToID("_Temp");
-        _screenID = Shader.PropertyToID("_Screen");
 
         outlineMaterial.SetColor("_Color", color);
         outlineMaterial.SetInt("_ZTestMode", (int)depthMode);
         composeMaterial.SetFloat("_AlphaMultiplier", addBlend);
 
-        UpdateCommandBuffer();
+        _prePassID = Shader.PropertyToID("_OutlinePrepass");
+        _blurredID = Shader.PropertyToID("_Blurred");
+        _tempID = Shader.PropertyToID("_Temp");        
+
+        commandBuffer = new CommandBuffer();
+        commandBuffer.name = "OUTLINES";
+        cam = GetComponent<Camera>();
+        cam.AddCommandBuffer(CameraEvent.BeforeImageEffects, commandBuffer);
+
+        screenWidth = Screen.width;
+        screenHeight = Screen.height;
+
+        SetupCommandBuffer();
     }
     
-    private void UpdateCommandBuffer()
+    private void SetupCommandBuffer()
     {
-        if (commandBuffer == null) return;
         commandBuffer.Clear();
-        commandBuffer.GetTemporaryRT(_screenID, -1, -1, 16, FilterMode.Bilinear);
-        commandBuffer.Blit(BuiltinRenderTextureType.CameraTarget, _screenID);
-        commandBuffer.GetTemporaryRT(_prePassID, -1, -1, 16, FilterMode.Bilinear);
-        commandBuffer.SetRenderTarget(_prePassID, BuiltinRenderTextureType.CameraTarget);
-        commandBuffer.ClearRenderTarget(false, true, Color.clear);
+        RenderToTexture();
+        Blur();
+        ReleaseRTs();
+    }
 
+    private void OnRenderImage(RenderTexture source, RenderTexture destination)
+    {
+        Graphics.Blit(source, destination, composeMaterial);
+    }
 
-        for (int i = 0; i < targets.Length; i++)
-        {
-            commandBuffer.DrawRenderer(targets[i], outlineMaterial);
-        }
+    private void ReleaseRTs()
+    {
+        commandBuffer.ReleaseTemporaryRT(_prePassID);
+        commandBuffer.ReleaseTemporaryRT(_blurredID);
+        commandBuffer.ReleaseTemporaryRT(_tempID);
+    }
 
-        commandBuffer.GetTemporaryRT(_blurredID, -2, -2, 0, FilterMode.Bilinear);
-        commandBuffer.GetTemporaryRT(_tempID, -2, -2, 0, FilterMode.Bilinear);
+    private void Blur()
+    {
+        commandBuffer.GetTemporaryRT(_blurredID, screenWidth >> downscaleFactor, screenHeight >> downscaleFactor, 0, FilterMode.Bilinear);
+        commandBuffer.GetTemporaryRT(_tempID, screenWidth >> downscaleFactor, screenHeight >> downscaleFactor, 0, FilterMode.Bilinear);
         commandBuffer.Blit(_prePassID, _blurredID);
 
         for (int i = 0; i < blurIterations; i++)
         {
             commandBuffer.Blit(_blurredID, _tempID, blurMaterial, 0);
             commandBuffer.Blit(_tempID, _blurredID, blurMaterial, 1);
-        }
-        commandBuffer.ReleaseTemporaryRT(_tempID);
-
-        commandBuffer.Blit(_screenID, BuiltinRenderTextureType.CameraTarget, composeMaterial);
-        commandBuffer.ReleaseTemporaryRT(_prePassID);
-        commandBuffer.ReleaseTemporaryRT(_blurredID);
-        commandBuffer.ReleaseTemporaryRT(_screenID);
+        }        
     }
+
+    private void RenderToTexture()
+    {
+        commandBuffer.GetTemporaryRT(_prePassID, -1, -1, 16, FilterMode.Bilinear);
+        commandBuffer.SetRenderTarget(_prePassID, BuiltinRenderTextureType.CameraTarget);
+        commandBuffer.ClearRenderTarget(false, true, Color.clear);
+        for (int i = 0; i < targets.Length; i++)
+        {
+            commandBuffer.DrawRenderer(targets[i], outlineMaterial);
+        }
+    }
+
+    
 
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        UpdateCommandBuffer();
+        if(commandBuffer != null) SetupCommandBuffer();
+
         if (outlineMaterial == null) return;
         outlineMaterial.SetColor("_Color", color);
         outlineMaterial.SetInt("_ZTestMode", (int)depthMode);
 
-        if (composeMaterial == null) return;
-        composeMaterial.SetFloat("_AlphaMultiplier", addBlend);
+        if (composeMaterial) composeMaterial.SetFloat("_AlphaMultiplier", addBlend);
 
     }
 #endif
