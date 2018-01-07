@@ -22,11 +22,12 @@ public class DrawOutlines: MonoBehaviour
 
     private CommandBuffer commandBuffer;
     private Camera cam;
+
     private int _prePassID;
     private int _blurredID;
     private int _tempID;
     private Material blurMaterial;
-    private Material outlineMaterial;
+    private Material outlineMaterial ;
     private Material composeMaterial;
 
     private int screenWidth;
